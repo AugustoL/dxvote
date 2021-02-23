@@ -185,7 +185,7 @@ const source = `
 > todo: React component preview markdown text.
 `;
 
-const ProposalsTable = observer(() => {
+const NewProposalForm = observer(() => {
     const {
         root: { providerStore, daoStore, configStore, daoService, ipfsService },
     } = useStores();
@@ -198,20 +198,25 @@ const ProposalsTable = observer(() => {
       const { library } = providerStore.getActiveWeb3React();
       
       const to = calls.map((call) => {
-        return (scheme == 'masterWalletScheme') ? configStore.getControllerAddress() : call.to
+        return (scheme == 'masterWallet') ? configStore.getControllerAddress() : call.to
       });
       
       const data = calls.map((call, i) => {
-        const parameters = call.callType == "decoded" 
-          ? call.functionName.substring(call.functionName.indexOf("(") + 1, call.functionName.lastIndexOf(")")).split(",")
-          : [];
+        let encodedData = "0x0";
         
-        const encodedData = call.callType == "decoded" ? 
-        library.eth.abi.encodeFunctionSignature(call.functionName) + 
-        library.eth.abi.encodeParameters(parameters, call.functionParams.split(",")).substring(2)
-        : call.data
+        if (call.functionName.length > 0 && call.functionParams > 0) {
+          const parameters = call.callType == "decoded" 
+            ? call.functionName.substring(
+              call.functionName.indexOf("(") + 1, call.functionName.lastIndexOf(")")).split(",")
+            : [];
+          
+          encodedData = call.callType == "decoded" ? 
+            library.eth.abi.encodeFunctionSignature(call.functionName) + 
+            library.eth.abi.encodeParameters(parameters, call.functionParams.split(",")).substring(2)
+          : call.data
+        }
                 
-        return (scheme == 'masterWalletScheme') ? daoService.encodeControllerGenericCall(
+        return (scheme == 'masterWallet') ? daoService.encodeControllerGenericCall(
           call.to,
           encodedData,
           call.callType == "decoded" ? library.utils.toWei(call.value).toString()
@@ -220,29 +225,29 @@ const ProposalsTable = observer(() => {
       });
       
       const value = calls.map((call) => {
-        return (scheme == 'masterWalletScheme') ? "0"
+        return (scheme == 'masterWallet') ? "0"
         : call.callType == "decoded" ? library.utils.toWei(call.value).toString()
           : call.value
       });
       console.log(to, data, value, titleText, calls)
       daoStore.createProposal( 
-        (scheme == 'masterWalletScheme') 
-          ? configStore.getMasterWalletSchemeAddress() : configStore.getQuickWalletSchemeAddress(),
+        (scheme == 'masterWallet') 
+          ? configStore.getSchemeAddress('masterWallet') : configStore.getSchemeAddress('quickWallet'),
         to, data, value, titleText, descriptionHash
       );
       
     }
 
-    const [scheme, setScheme] = React.useState("masterWalletScheme");
+    const [scheme, setScheme] = React.useState("masterWallet");
     const [titleText, setTitleText] = React.useState("");
     const [descriptionText, setDescriptionText] = React.useState("");
     const [calls, setCalls] = React.useState([{
-      to: "0x554898A0BF98aB0C03ff86C7DccBE29269cc4d29",
+      to: "",
       callType: "decoded",
       data: "",
-      functionName: "transfer(address,uint256)",
-      functionParams: "0x08EEc580AD41e9994599BaD7d2a74A9874A2852c,666",
-      value: "100"
+      functionName: "",
+      functionParams: "",
+      value: ""
     }]);
     const [, forceUpdate] = React.useReducer(x => x + 1, 0);
     
@@ -305,8 +310,8 @@ const ProposalsTable = observer(() => {
           <SchemeInput>
             <label for="scheme">Choose a Scheme:</label>
             <select name="scheme" id="schemeSelector" onChange={setScheme}>
-              <option value="masterWalletScheme">Master Wallet Scheme</option>
-              <option value="quickWalletScheme">Quick Wallet Scheme</option>
+              <option value="masterWallet">Master Wallet Scheme</option>
+              <option value="quickWallet">Quick Wallet Scheme</option>
             </select>
           </SchemeInput>
           <TitleInput>
@@ -415,4 +420,4 @@ const ProposalsTable = observer(() => {
     }
 });
 
-export default ProposalsTable;
+export default NewProposalForm;

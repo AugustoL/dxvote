@@ -1,12 +1,16 @@
+import { action, observable } from 'mobx';
 import RootStore from 'stores/Root';
 import { getConfig } from '../config/contracts';
+import { _ } from 'lodash';
 import { CHAIN_NAME_BY_ID, DEFAULT_ETH_CHAIN_ID } from '../provider/connectors';
 
 export default class ConfigStore {
+    @observable darkMode: boolean;
     rootStore: RootStore;
 
     constructor(rootStore) {
       this.rootStore = rootStore;
+      this.darkMode = false;
     }
     
     getActiveChainName() {
@@ -14,8 +18,30 @@ export default class ConfigStore {
       return CHAIN_NAME_BY_ID[(activeWeb3 && activeWeb3.chainId) ? activeWeb3.chainId : DEFAULT_ETH_CHAIN_ID];
     }
     
+    getApiKeys() {
+      return {
+        etherscan: localStorage.getItem('dxvote-etherscan'),
+        tenderly: localStorage.getItem('dxvote-tenderly')
+      }
+    }
+    
+    getApiKey(service) {
+      localStorage.getItem('dxvote-'+service);
+    }
+    
+    setApiKey(service, key) {
+      localStorage.setItem('dxvote-'+service, key);
+    }
+    
+    @action toggleDarkMode() {
+        this.darkMode = !this.darkMode;
+    }
+
+    @action setDarkMode(visible: boolean) {
+        this.darkMode = visible;
+    }
+    
     getNetworkConfig() {
-      console.log(this.getActiveChainName(), DEFAULT_ETH_CHAIN_ID)
       return getConfig(this.getActiveChainName());
     }
     getAvatarAddress() {
@@ -33,13 +59,22 @@ export default class ConfigStore {
     getVotingMachineTokenAddress() {
       return getConfig(this.getActiveChainName()).votingMachineToken || "0x0000000000000000000000000000000000000000";
     }
-    getMasterWalletSchemeAddress() {
-      return getConfig(this.getActiveChainName()).masterWalletScheme || "0x0000000000000000000000000000000000000000";
-    }
-    getQuickWalletSchemeAddress() {
-      return getConfig(this.getActiveChainName()).quickWalletScheme || "0x0000000000000000000000000000000000000000";
-    }
     getMulticallAddress() {
       return getConfig(this.getActiveChainName()).multicall || "0x0000000000000000000000000000000000000000";
+    }
+    getSchemeAddress(schemeName) {
+      return getConfig(this.getActiveChainName()).schemes[schemeName] || "0x0000000000000000000000000000000000000000";
+    }
+    
+    getSchemeName(schemeAddress) {
+      function swap(obj){
+        var ret = {};
+        for(var key in obj)
+          ret[obj[key]] = key;
+        return ret;
+      }
+      const schemeName = swap(getConfig(this.getActiveChainName()).schemes)[schemeAddress];
+      return (schemeName.charAt(0).toUpperCase() + schemeName.slice(1)).replace(/([A-Z])/g, ' $1').trim()
+
     }
 }

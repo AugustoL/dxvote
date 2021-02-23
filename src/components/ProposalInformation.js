@@ -125,10 +125,8 @@ const ProposalInformation = observer(() => {
     } = useStores();
     const schemeAddress = useLocation().pathname.split("/")[2];
     const proposalId = useLocation().pathname.split("/")[4];
-    daoStore.getProposalInfo(schemeAddress, proposalId)
-    daoStore.getShortchemeInfo(schemeAddress)
-    const proposalInfo = daoStore.proposals[proposalId];
-    const shortchemeInfo = daoStore.schemes[schemeAddress];
+    const shortchemeInfo = daoStore.getSchemeInfo(schemeAddress);
+    const proposalInfo = daoStore.getProposalInfo(schemeAddress, proposalId, shortchemeInfo.parameters);
     const { userVotingMachineTokenBalance, userVotingMachineTokenApproved } = daoStore.getDaoInfo(); 
     const {content: proposalDescription} = proposalInfo ? ipfsService.get(proposalInfo.descriptionHash)
     : "";
@@ -141,16 +139,15 @@ const ProposalInformation = observer(() => {
     const [stakePercentage, setStakePercentage] = React.useState(100);
     
     if (proposalInfo){
-      daoService.getProposalEvents(proposalId, proposalInfo.creationBlock).then((pEvents) => {
+      console.log(proposalInfo)
+      daoService.getProposalEvents(proposalId, Number(proposalInfo.creationBlock)).then((pEvents) => {
         if (!proposalEvents.stakes && !proposalEvents.votes){
-          console.log(pEvents)
           setProposalEvents(pEvents);
         }
       })
 
       daoService.getRepAt(proposalInfo.creationBlock).then((repAtCreation) => {
         if (!userRep && !totalRep) {
-          console.log(repAtCreation);
           setUserRep(repAtCreation.userRep);
           setTotalRep(repAtCreation.totalSupply);
         }
@@ -162,7 +159,7 @@ const ProposalInformation = observer(() => {
       for (var i = 0; i < proposalEvents.votes.length; i++){
         if (proposalEvents.votes[i].returnValues._voter === account)
           votedAmount = proposalEvents.votes[i].returnValues._vote === "2" ?
-            Math.neg(proposalEvents.votes[i].returnValues._reputation)
+            - proposalEvents.votes[i].returnValues._reputation
             : proposalEvents.votes[i].returnValues._reputation;
         if (proposalEvents.votes[i].returnValues._vote === "1")
           positiveVotesCount ++;
@@ -174,7 +171,7 @@ const ProposalInformation = observer(() => {
       for (var i = 0; i < proposalEvents.stakes.length; i++){
         if (proposalEvents.stakes[i].returnValues._staker === account)
           stakedAmount = proposalEvents.stakes[i].returnValues._vote === "2" ?
-            Math.neg(proposalEvents.stakes[i].returnValues._amount)
+            - proposalEvents.stakes[i].returnValues._amount
             : proposalEvents.stakes[i].returnValues._amount;
         if (proposalEvents.stakes[i].returnValues._vote === "1")
           positiveStakesCount ++;
@@ -222,7 +219,6 @@ const ProposalInformation = observer(() => {
           proposalInfo.to[p] = decodedGenericCall.to;
           proposalInfo.callData[p] = decodedGenericCall.data;
           proposalInfo.values[p] = decodedGenericCall.value;
-          console.log(proposalInfo.proposalCallText[p])
         }
       }
         
@@ -244,12 +240,11 @@ const ProposalInformation = observer(() => {
       const timeToFinish = proposalInfo && proposalInfo.finishTime > moment().unix() ?
       moment().to( moment(proposalInfo.finishTime.times(1000).toNumber()) ).toString()
       : "";
-
       
       function onVoteValueChange(newValue) {
         const voteSlider = document.querySelectorAll("span[aria-labelledby='vote-slider']")[0];
-        console.log((voteSlider.ariaValueNow - 50) * 2)
         setVotePercentage((voteSlider.ariaValueNow - 50) * 2)
+        voteSlider.ariaValueNow = votePercentage;
       }
       
       function onStakeValueChange(newValue) {
@@ -319,21 +314,32 @@ const ProposalInformation = observer(() => {
               })}
             </ProposalInfoSection>
             <InfoSidebar>
-              <h2 style={{margin: "10px 0px 0px 0px", textAlign: "center"}}>{proposalInfo.status}</h2>
+              <h2 style={{margin: "10px 0px 0px 0px", textAlign: "center"}}>{
+                (proposalInfo.status == "Quiet Ending Period" && timeToFinish == "") ?
+                  "Pending Execution" : proposalInfo.status
+                }</h2>
               <SidebarRow style={{
                 borderBottom: "1px solid gray",
                 margin: "0px 10px",
+                flexDirection: "column"
               }}>
-              {(proposalInfo.boostTime > moment().unix()) ? <span className="timeText">Boost {timeToBoost} </span> : <span></span>}
-              {(proposalInfo.finishTime > moment().unix()) ?
-                <span className="timeText">Finish {timeToFinish} {proposalInfo.status == "Pending Boost" ? " after boost": ""} </span>
-                : <span></span>}
-              {proposalInfo.status == "Pending Boost" ? 
-                <VoteButton color="blue" onClick={executeProposal}><FiFastForward/> Boost </VoteButton>
-                : proposalInfo.status == "Pending Execution" ?
-                <VoteButton color="blue" onClick={executeProposal}><FiPlayCircle/> Execute </VoteButton>
-                : <div/>
-              } 
+                {(proposalInfo.boostTime > moment().unix()) ?
+                  <span className="timeText"> Boost {timeToBoost} </span> 
+                  : <span></span>
+                }
+                
+                {(proposalInfo.finishTime > moment().unix()) ?
+                  <span className="timeText">
+                    Finish {timeToFinish} {proposalInfo.status == "Pending Boost" || proposalInfo.status == "Pre Boosted" ? " after boost": ""} </span>
+                  : <span></span>}
+                {proposalInfo.status == "Pending Boost" ? 
+                  <VoteButton color="blue" onClick={executeProposal}><FiFastForward/> Boost </VoteButton>
+                  : proposalInfo.status == "Quiet Ending Period" && timeToFinish == "" ?
+                  <VoteButton color="blue" onClick={executeProposal}><FiPlayCircle/> Execute </VoteButton>
+                  : proposalInfo.status == "Pending Execution" ?
+                  <VoteButton color="blue" onClick={executeProposal}><FiPlayCircle/> Execute </VoteButton>
+                  : <div/>
+                } 
               </SidebarRow>
               <SidebarRow>
                 <span> Staked </span>
@@ -369,30 +375,32 @@ const ProposalInformation = observer(() => {
                   <AmountBadge color="red">{negativeVotesCount}</AmountBadge>
                 </span>
               </SidebarRow>
-              {votedAmount == 0 ?
+              {votedAmount == 0 && proposalInfo.statusPriority >=3 && proposalInfo.statusPriority <= 6  ?
                 <SidebarRow>
                   <AmountSlider
-                    defaultValue={votePercentage}
-                    aria-labelledby="vote-slider"
-                    step={0.1}
-                    onChangeCommitted={onVoteValueChange}
-                    marks={voteMarks}
-                    style={{color: votePercentage > 0 ? 'green' : 'red'}}
+                  defaultValue={100}
+                  aria-labelledby="vote-slider"
+                  step={0.1}
+                  onChangeCommitted={onVoteValueChange}
+                  marks={voteMarks}
+                  style={{color: votePercentage > 0 ? 'green' : 'red'}}
                   />
-                  <span>{voteAmount} %</span>
+                  <span style={{color: votePercentage > 0 ? 'green' : 'red'}}>{voteAmount()} %</span>
                   <VoteButton color="blue" onClick={() => submitVote()}>Vote</VoteButton>
                 </SidebarRow>
-                : <SidebarRow>
+              : votedAmount != 0 ?
+                <SidebarRow>
                   Already voted {(votedAmount > 0) ? "for" : "against"} with { (votedAmount / totalRep * 100).toFixed(2)} % REP
                 </SidebarRow>
+              : <div/>
               }
               <br/>
-              {userVotingMachineTokenApproved == 0 ?
+              {(proposalInfo.statusPriority == 3 || proposalInfo.statusPriority== 4) && userVotingMachineTokenApproved == 0 ?
                 <SidebarRow>
                   <small>Approve DXD to stake</small>
                   <VoteButton color="blue" onClick={() => approveDXD()}>Approve DXD</VoteButton>
                 </SidebarRow>
-                : ((proposalInfo.stateInVotingMachine == 3 || proposalInfo.stateInVotingMachine == 4)) ?
+                : (proposalInfo.statusPriority == 3 || proposalInfo.statusPriority== 4)  ?
                   <div>
                     {stakeToBoost > 0 ? <small>Stake {Number(stakeToBoost).toFixed(2)} DXD to boost</small> : <span/>}
                     {stakeToUnBoost > 0 ? <small>Stake {Number(stakeToUnBoost).toFixed(2)} DXD to unboost</small> : <span/>}

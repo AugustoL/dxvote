@@ -9,6 +9,7 @@ export const decodeStatus = function(
   preBoostedPhaseTime,
   queuedVotePeriodLimit,
   boostedVotePeriodLimit,
+  quietEndingPeriod,
   preBoostedVotePeriodLimit,
   shouldBoost
 ) {
@@ -48,7 +49,7 @@ export const decodeStatus = function(
       if (moment().unix() > submittedTime.plus(queuedVotePeriodLimit).toNumber()) {
         return { 
           status: "Expired in Queue",
-          statusPriority: 3,
+          statusPriority: 1,
           boostTime: 0,
           finishTime: submittedTime.plus(queuedVotePeriodLimit)
         };
@@ -107,7 +108,7 @@ export const decodeStatus = function(
         status: "Quiet Ending Period", 
         statusPriority: 6,
         boostTime: 0,
-        finishTime: 0
+        finishTime: boostedPhaseTime.plus(quietEndingPeriod)
       };
     break;
     default:
