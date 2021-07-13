@@ -2,6 +2,7 @@ import RootStore from '../stores';
 import IPFS from 'ipfs-core';
 import contentHash from 'content-hash';
 import axios from "axios";
+const CID = require('cids')
 
 export default class IPFSService {
   rootStore: RootStore;
@@ -34,11 +35,20 @@ export default class IPFSService {
     return cid.string;
   }
   
-  async pin(cid: String){
-    await this.ipfs.pin.add(cid);
+  async pin(hash: String){
+    console.log(new CID(hash))
+    return await this.ipfs.pin.add(new CID(hash));
   }
   
-  async get(hash: String){
-    return axios.get(`https://gateway.pinata.cloud/ipfs/${contentHash.decode(hash)}`);
+  async getContent(hash: String){
+    const content = []
+    for await (const file of this.ipfs.get(hash)) {
+      console.debug("[IPFS FILE]",file.type, file.path);
+      if (!file.content) continue;
+      for await (const chunk of file.content) {
+        content.push(chunk)
+      }
+    }
+    return content.toString("utf8");
   }
 }

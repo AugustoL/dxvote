@@ -5,7 +5,6 @@ import { isChainIdSupported } from '../provider/connectors';
 import { ContractType } from './Provider';
 import { decodeSchemeParameters } from '../utils/scheme';
 import { decodePermission } from '../utils/permissions';
-import { decodeStatus } from '../utils/proposals';
 import { bnum } from '../utils/helpers';
 const { updateNetworkCache } = require('../utils/cache');
 
@@ -155,35 +154,51 @@ export default class BlockchainStore {
         userStore
       } = this.rootStore;
 
+      let networkCache = daoStore.getCache();
       const blockNumber = await library.eth.getBlockNumber();
-      const lastCheckedBlockNumber = providerStore.getCurrentBlockNumber();
+      const lastCheckedBlockNumber = networkCache.l1BlockNumber;
 
-      if (blockNumber !== lastCheckedBlockNumber) {
+      if (blockNumber > lastCheckedBlockNumber) {
         console.debug('[Fetch Loop] Fetch Blockchain Data', { blockNumber, account, chainId });
         
-        let networkCache = daoStore.getCache();
-        const fromBlock = networkCache.blockNumber;
+        const fromBlock = lastCheckedBlockNumber + 1;
         const toBlock = blockNumber;
         const networkName = configStore.getActiveChainName();
         const networkConfig = configStore.getNetworkConfig();
         networkCache = await updateNetworkCache(networkCache, networkName, fromBlock, toBlock, library);
         
-        let tokensBalancesCalls = []
+        let tokensBalancesCalls = [];
         Object.keys(networkConfig.tokens).map((tokenAddress) => {
-          if (!daoStore.tokenBalances[tokenAddress])
+          if (!networkCache.daoInfo.tokenBalances[tokenAddress])
             tokensBalancesCalls.push({
               contractType: ContractType.ERC20,
               address: tokenAddress,
               method: 'balanceOf',
               params: [networkConfig.avatar],
             });
+          Object.keys(networkCache.schemes).map((schemeAddress) => {
+            if (networkCache.schemes[schemeAddress].controllerAddress != networkConfig.controller)
+              tokensBalancesCalls.push({
+                contractType: ContractType.ERC20,
+                address: tokenAddress,
+                method: 'balanceOf',
+                params: [schemeAddress],
+              });
+          })
         });
 
         if (tokensBalancesCalls.length > 0)
           multicallService.addCalls(tokensBalancesCalls);
         await this.executeAndUpdateMulticall(multicallService);
+        
         tokensBalancesCalls.map((tokensBalancesCall) => {
-          daoStore.updateTokenBalance(tokensBalancesCall.address)
+          if (tokensBalancesCall.params[0] == networkConfig.avatar) {
+            networkCache.daoInfo.tokenBalances[tokensBalancesCall.address] =
+              this.rootStore.blockchainStore.getCachedValue(tokensBalancesCall) || bnum(0);
+          } else {
+            networkCache.schemes[tokensBalancesCall.params[0]].tokenBalances[tokensBalancesCall.address] =
+              this.rootStore.blockchainStore.getCachedValue(tokensBalancesCall) || bnum(0);
+          }
         });
         
         // Get user-specific blockchain data
@@ -191,42 +206,42 @@ export default class BlockchainStore {
           transactionStore.checkPendingTransactions(web3React, account);
           let accountCalls = [{
             contractType: ContractType.Multicall,
-            address: configStore.getNetworkConfig().multicall,
+            address: networkConfig.utils.multicall,
             method: 'getEthBalance',
             params: [account],
           },{
             contractType: ContractType.Reputation,
-            address: configStore.getNetworkConfig().reputation,
+            address: networkConfig.reputation,
             method: 'balanceOf',
             params: [account],
           }];
           
-          if (configStore.getNetworkConfig().votingMachines.gen) {
+          if (networkConfig.votingMachines.gen) {
             accountCalls.push({
               contractType: ContractType.ERC20,
-              address: configStore.getNetworkConfig().votingMachines.gen.token,
+              address: networkConfig.votingMachines.gen.token,
               method: 'balanceOf',
               params: [account],
             });
             accountCalls.push({
               contractType: ContractType.ERC20,
-              address: configStore.getNetworkConfig().votingMachines.gen.token,
+              address: networkConfig.votingMachines.gen.token,
               method: 'allowance',
-              params: [account, configStore.getNetworkConfig().votingMachines.gen.address],
+              params: [account, networkConfig.votingMachines.gen.address],
             });
           }
-          if (configStore.getNetworkConfig().votingMachines.dxd) {
+          if (networkConfig.votingMachines.dxd) {
             accountCalls.push({
               contractType: ContractType.ERC20,
-              address: configStore.getNetworkConfig().votingMachines.dxd.token,
+              address: networkConfig.votingMachines.dxd.token,
               method: 'balanceOf',
               params: [account],
             });
             accountCalls.push({
               contractType: ContractType.ERC20,
-              address: configStore.getNetworkConfig().votingMachines.dxd.token,
+              address: networkConfig.votingMachines.dxd.token,
               method: 'allowance',
-              params: [account, configStore.getNetworkConfig().votingMachines.dxd.address],
+              params: [account, networkConfig.votingMachines.dxd.address],
             });
           }
           
@@ -235,13 +250,12 @@ export default class BlockchainStore {
           userStore.update();
         };
         
-        networkCache.blockNumber = toBlock;
+        networkCache.l1BlockNumber = toBlock;
         providerStore.setCurrentBlockNumber(toBlock);
-        daoStore.updateNetworkCache(networkCache, configStore.getActiveChainName());
-        
-        this.initialLoadComplete = true;
-        
       }
+      daoStore.updateNetworkCache(networkCache, configStore.getActiveChainName());
+
+      this.initialLoadComplete = true;
       this.activeFetchLoop = false;
     }
   }

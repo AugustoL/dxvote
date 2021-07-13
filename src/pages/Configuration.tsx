@@ -3,7 +3,9 @@ import styled from 'styled-components';
 import { observer } from 'mobx-react';
 import { useStores } from '../contexts/storesContext';
 import ActiveButton from '../components/common/ActiveButton';
+import Question from '../components/common/Question';
 import { FiCheckCircle, FiX } from "react-icons/fi";
+import Box from '../components/common/Box';
 
 const Row = styled.div`
   flex-direction: row;
@@ -61,8 +63,8 @@ const ConfigPage = observer(() => {
     }
   
     return (
-      <div style={{padding: "0px 20px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center"}}>
-        <h2>API Keys</h2>
+      <Box style={{alignItems: "center"}}>
+        <h2>API Keys <Question question="8"/></h2>
         <Row style={{maxWidth: "500px"}}>
           <span style={{width: "80px", height: "34px", padding:"10px 0px"}}>Etherscan:</span>
           <InputBox
@@ -103,7 +105,7 @@ const ConfigPage = observer(() => {
           <ActiveButton onClick={testApis}>Test Apis</ActiveButton>
           <ActiveButton onClick={pinDXvoteHashes}>Pin Dxvote Hashes</ActiveButton>
         </Row>
-      </div>
+      </Box>
     );
 });
 

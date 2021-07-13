@@ -4,6 +4,7 @@ import { observer } from 'mobx-react';
 import { useStores } from '../contexts/storesContext';
 import ActiveButton from '../components/common/ActiveButton';
 import BlockchainLink from '../components/common/BlockchainLink';
+import Question from '../components/common/Question';
 import { bnum } from '../utils/helpers';
 import { Link } from 'react-router-dom';
 import moment from 'moment';
@@ -22,20 +23,20 @@ const ProposalTableHeaderWrapper = styled.div`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    color: var(--light-text-gray);
+    color: var(--dark-text-gray);
     padding: 20px 40px 8px 24px;
-    font-size: 14px;
+    font-size: 16px;
     text-align: center;
 `;
 
 const TableHeader = styled.div`
     width: ${(props) => props.width || '25%'};
     text-align: ${(props) => props.align};
+    align-items: center;
 `;
 
 const TableRowsWrapper = styled.div`
     overflow-y: scroll;
-    /* height: 260px; */
 `;
 
 const TableRow = styled.div`
@@ -48,7 +49,6 @@ const TableRow = styled.div`
     padding: 16px 24px;
     color: var(--dark-text-gray);
     text-align: right;
-    cursor: pointer;
 `;
 
 const TableCell = styled.div`
@@ -84,84 +84,110 @@ const SchemesInformation = observer(() => {
       <SchemesInformationWrapper>
         <ProposalTableHeaderWrapper>
             <TableHeader width="15%" align="left"> Name </TableHeader>
-            <TableHeader width="40%" align="center"> Configuration </TableHeader>
-            <TableHeader width="25%" align="center"> Permissions </TableHeader>
+            <TableHeader width="40%" align="center"> Configuration <Question question="9"/> </TableHeader>
+            <TableHeader width="25%" align="center"> Permissions <Question question="9"/> </TableHeader>
             <TableHeader width="20%" align="center" style={{display: "flex", justifyContent: "space-between"}}>
               <span>Boosted</span> - <span>Active</span> - <span>Total</span>
             </TableHeader>
         </ProposalTableHeaderWrapper>
         <TableRowsWrapper>
         {schemes.map((scheme, i) => {
-          const schemeProposals = daoStore.getSchemeProposals(scheme.name);
-          const schemeConfiguration = scheme.configurations[ scheme.configurations.length - 1];
-          return (
-            <Link key={"scheme"+i} to={"/scheme/"+scheme.address} style={{textDecoration: "none"}}>
-              <TableRow>
-                <TableCell width="15%" align="left" weight='500' wrapText="true">
-                  {scheme.name}<br/>
-                  <BlockchainLink size="short" text={scheme.address} toCopy/>
-                </TableCell>
-                <TableCell width="40%" align="center">
-                  <small>Queued Proposal Period: {
-                    moment.duration(schemeConfiguration.parameters.queuedVotePeriodLimit.toString(), 'seconds').humanize()
-                  }</small><br/>
-                  <small>Boosted Proposal Period: {
-                    moment.duration(schemeConfiguration.parameters.boostedVotePeriodLimit.toString(), 'seconds').humanize()
-                  }</small><br/>
-                  <small>PreBoosted Proposal Period: {
-                    moment.duration(schemeConfiguration.parameters.preBoostedVotePeriodLimit.toString(), 'seconds').humanize()
-                  }</small><br/>
-                  <small>Quiet Ending Period: {
-                    moment.duration(schemeConfiguration.parameters.quietEndingPeriod.toString(), 'seconds').humanize()
-                  }</small><br/>
-                  <small>Max time for execution: {
-                    moment.duration(scheme.maxSecondsForExecution.toString(), 'seconds').humanize()
-                  }</small><br/>
-                  
-                  <small>Required Percentage for queue approval: {schemeConfiguration.parameters.queuedVoteRequiredPercentage.toString()} %</small><br/>
-                  <small>Required Percentage for boosted approval: {bnum(schemeConfiguration.boostedVoteRequiredPercentage).div("1000").toString()} %</small><br/>
-                  <small>Queued Proposal Period: {
-                    moment.duration(schemeConfiguration.parameters.queuedVotePeriodLimit.toString(), 'seconds').humanize()
-                  }</small><br/>
-                  <small>Boosted Proposal Period: {
-                    moment.duration(schemeConfiguration.parameters.boostedVotePeriodLimit.toString(), 'seconds').humanize()
-                  }</small><br/>
-                  <small>PreBoosted Proposal Period: {
-                    moment.duration(schemeConfiguration.parameters.preBoostedVotePeriodLimit.toString(), 'seconds').humanize()
-                  }</small><br/>
-                  <small>Quiet Ending Period: {
-                    moment.duration(schemeConfiguration.parameters.quietEndingPeriod.toString(), 'seconds').humanize()
-                  }</small><br/>
-                  <small>Rep Proposing Reward: {
-                    Number(library.utils.fromWei(schemeConfiguration.parameters.proposingRepReward.toString())).toFixed(2)
-                  } REP</small><br/>
-                  <small>Reputation Loss Ratio: {schemeConfiguration.parameters.votersReputationLossRatio.toString()} %</small><br/>
-                  <small>Minimum Dao Boost: {
-                    Number(library.utils.fromWei(schemeConfiguration.parameters.minimumDaoBounty.toString())).toFixed(2)
-                  } DXD</small><br/>
-                  <small>Proposal Boost Bounty Const: {schemeConfiguration.parameters.daoBountyConst.toString()}</small><br/>
-                  <small>Boost Threshold Constant: {schemeConfiguration.parameters.thresholdConst.toString()}</small><br/>
-                  <small>Boost Limit Exponent Value: {schemeConfiguration.parameters.limitExponentValue.toString()}</small>
-                  
-                </TableCell>
-                <TableCell width="25%" align="center">
-                  <small>{schemeConfiguration.permissions.canGenericCall ? 'Can' : 'Cant'} make generic call</small><br/>
-                  <small>{schemeConfiguration.permissions.canUpgrade ? 'Can' : 'Cant'} upgrade controller</small><br/>
-                  <small>{schemeConfiguration.permissions.canChangeConstraints ? 'Can' : 'Cant'} change constraints</small><br/>
-                  <small>{schemeConfiguration.permissions.canRegisterSchemes ? 'Can' : 'Cant'} register schemes</small>
-                </TableCell>
+          const schemeProposals = daoStore.getSchemeProposals(scheme.address);
+          const votingMachineParameters = daoStore.getVotingParametersOfScheme(scheme.address);
+          if (votingMachineParameters)
+            return (
+              <div key={"scheme"+i}>
+                <TableRow>
+                  <TableCell width="15%" align="left" weight='500' wrapText="true">
+                    {scheme.name}<br/>
+                    <BlockchainLink size="short" text={scheme.address} toCopy/>
+                  </TableCell>
+                  <TableCell width="40%" align="center">
+                    <small>Queued Proposal Period: {
+                      moment.duration(votingMachineParameters.queuedVotePeriodLimit.toString(), 'seconds').humanize()
+                    }</small><br/>
+                    <small>Boosted Proposal Period: {
+                      moment.duration(votingMachineParameters.boostedVotePeriodLimit.toString(), 'seconds').humanize()
+                    }</small><br/>
+                    <small>PreBoosted Proposal Period: {
+                      moment.duration(votingMachineParameters.preBoostedVotePeriodLimit.toString(), 'seconds').humanize()
+                    }</small><br/>
+                    <small>Quiet Ending Period: {
+                      moment.duration(votingMachineParameters.quietEndingPeriod.toString(), 'seconds').humanize()
+                    }</small><br/>
+                    { (scheme.type == "WalletScheme")
+                      ? <small>Max time for execution: {
+                          moment.duration(scheme.maxSecondsForExecution.toString(), 'seconds').humanize()
+                        }<br/></small>
+                      : <div/>
+                    }
+                    { (scheme.type == "WalletScheme")
+                      ? <small>Max REP % to change in proposal: {scheme.maxRepPercentageChange.toString()} %<br/></small>
+                      : <div/>
+                    }
+                    { (scheme.type == "WalletScheme")
+                      ? <small>Required Percentage for boosted approval: {bnum(scheme.boostedVoteRequiredPercentage).div("1000").toString()} %<br/></small>
+                      : <div/>
+                    }
+                    
+                    <small>Required Percentage for queue approval: {votingMachineParameters.queuedVoteRequiredPercentage.toString()} %</small><br/>
+                    <small>Queued Proposal Period: {
+                      moment.duration(votingMachineParameters.queuedVotePeriodLimit.toString(), 'seconds').humanize()
+                    }</small><br/>
+                    <small>Boosted Proposal Period: {
+                      moment.duration(votingMachineParameters.boostedVotePeriodLimit.toString(), 'seconds').humanize()
+                    }</small><br/>
+                    <small>PreBoosted Proposal Period: {
+                      moment.duration(votingMachineParameters.preBoostedVotePeriodLimit.toString(), 'seconds').humanize()
+                    }</small><br/>
+                    <small>Quiet Ending Period: {
+                      moment.duration(votingMachineParameters.quietEndingPeriod.toString(), 'seconds').humanize()
+                    }</small><br/>
+                    <small>Rep Proposing Reward: {
+                      Number(library.utils.fromWei(votingMachineParameters.proposingRepReward.toString())).toFixed(2)
+                    } REP</small><br/>
+                    <small>Reputation Loss Ratio: {votingMachineParameters.votersReputationLossRatio.toString()} %</small><br/>
+                    <small>Minimum Dao Boost: {
+                      Number(library.utils.fromWei(votingMachineParameters.minimumDaoBounty.toString())).toFixed(2)
+                    } DXD</small><br/>
+                    <small>Proposal Boost Bounty Const: {votingMachineParameters.daoBountyConst.toString()}</small><br/>
+                    <small>Boost Threshold Constant: {votingMachineParameters.thresholdConst.toString()}</small><br/>
+                    <small>Boost Limit Exponent Value: {votingMachineParameters.limitExponentValue.toString()}</small>
+                    
+                  </TableCell>
+                  <TableCell width="25%" align="center" wrapText>
+                    <strong>Controller Permissions</strong><br/>
+                    <small>{scheme.permissions.canGenericCall ? 'Can' : 'Cant'} make generic call</small><br/>
+                    <small>{scheme.permissions.canUpgrade ? 'Can' : 'Cant'} upgrade controller</small><br/>
+                    <small>{scheme.permissions.canChangeConstraints ? 'Can' : 'Cant'} change constraints</small><br/>
+                    <small>{scheme.permissions.canRegisterSchemes ? 'Can' : 'Cant'} register schemes</small>
+                    <br/><br/>
+                    <strong>Call Permissions</strong><br/>
 
-                <TableCell width="20%" align="center" style={{display: "flex", justifyContent: "space-around"}}> 
-                  <span>{scheme.boostedProposals}</span>
-                  -
-                  <span>{schemeProposals.filter((proposal) => {
-                    return (proposal.priority >=3 && proposal.priority <= 6 )
-                  }).length}</span>
-                  -
-                  <span>{scheme.proposalIds ? scheme.proposalIds.length : 0}</span>
-                </TableCell>
-              </TableRow>
-            </Link>);
+                    {scheme.callPermissions.map((callPermission, i) => {
+                      if (callPermission.fromTime > 0)
+                        return (
+                          <small key={`callPermission${i}`}>
+                            Address: {callPermission.to == "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa" ? "Any Address" : callPermission.to}<br/>
+                            Function: {callPermission.functionSignature == "0xaaaaaaaa" ? "Any" : callPermission.functionSignature}<br/>
+                            Value: {callPermission.value == "115792089237316195423570985008687907853269984665640564039457584007913129639935" ? "Any": callPermission.value}<br/>
+                          <br/></small>
+                        );
+                    })}
+                  </TableCell>
+
+                  <TableCell width="20%" align="center" style={{display: "flex", justifyContent: "space-around"}}> 
+                    <span>{scheme.boostedProposals}</span>
+                    -
+                    <span>{schemeProposals.filter((proposal) => {
+                      return (proposal.priority >=3 && proposal.priority <= 6 )
+                    }).length}</span>
+                    -
+                    <span>{scheme.proposalIds ? scheme.proposalIds.length : 0}</span>
+                  </TableCell>
+                </TableRow>
+              </div>
+            );
           }
         )}
         </TableRowsWrapper>

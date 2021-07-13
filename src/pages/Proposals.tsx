@@ -3,17 +3,15 @@ import styled from 'styled-components';
 import { observer } from 'mobx-react';
 import { useStores } from '../contexts/storesContext';
 import ActiveButton from '../components/common/ActiveButton';
+import Box from '../components/common/Box';
+import { timeToTimestamp } from '../utils/date';
+import { normalizeBalance } from '../utils/token';
+import { formatPercentage } from '../utils/number';
 import { Link } from 'react-router-dom';
 import moment from 'moment';
 
-const ProposalsTableWrapper = styled.div`
+const ProposalsTableWrapper = styled(Box)`
   width: 100%;
-  background: white;
-  font-weight: 400;
-  border-radius: 4px;
-  display: flex;
-  justify-content: center;
-  flex-direction: column;
 `;
 
 const ProposalsFilter = styled.select`
@@ -51,77 +49,70 @@ const ProposalsNameFilter = styled.input`
 `;
 
 const ProposalTableHeaderActions = styled.div`
-    padding: 0px 10px 10px 10px;
-    color: var(--dark-text-gray);
-    border-bottom: 1px solid var(--line-gray);
-    font-weight: 500;
-    font-size: 18px;
-    letter-spacing: 1px;
-    display: flex;
-    justify-content: space-between;
-    flex-direction: row;
-    
-    span {
-      font-size: 20px;
-      padding: 10px 5px 5px 5px;
-    }
+  padding: 0px 10px 10px 10px;
+  color: var(--dark-text-gray);
+  border-bottom: 1px solid var(--line-gray);
+  font-weight: 500;
+  font-size: 18px;
+  letter-spacing: 1px;
+  display: flex;
+  justify-content: space-between;
+  flex-direction: row;
+  
+  span {
+    font-size: 20px;
+    padding: 10px 5px 5px 5px;
+  }
 `;
 
 const ProposalTableHeaderWrapper = styled.div`
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    color: var(--light-text-gray);
-    padding: 20px 40px 8px 24px;
-    font-size: 14px;
-    text-align: center;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  color: var(--light-text-gray);
+  padding: 20px 24px 8px 24px;
+  font-size: 14px;
+  text-align: center;
 `;
 
 const TableHeader = styled.div`
-    width: ${(props) => props.width || '25%'};
-    text-align: ${(props) => props.align};
+  width: ${(props) => props.width || '25%'};
+  text-align: ${(props) => props.align};
 `;
 
 const TableRowsWrapper = styled.div`
-    overflow-y: scroll;
-    height: 350px;
-    
-    h3 {
-      text-align: center;
-      margin-top: 30px;
-      color: var(--dark-text-gray);
-    }
+  overflow-y: scroll;
+  height: 350px;
+  
+  h3 {
+    text-align: center;
+    margin-top: 30px;
+    color: var(--dark-text-gray);
+  }
 `;
 
 const TableRow = styled.div`
-    font-size: 16px;
-    line-height: 18px;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--line-gray);
-    padding: 16px 24px;
-    color: var(--dark-text-gray);
-    text-align: right;
-    cursor: pointer;
+  font-size: 16px;
+  line-height: 18px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line-gray);
+  padding: 16px 24px;
+  color: var(--dark-text-gray);
+  text-align: right;
+  cursor: pointer;
 `;
 
 const TableCell = styled.div`
-    a {
-        text-decoration: none;
-        width: 100%;
-
-        &:hover{
-            color: var(--turquois-text-onHover);
-        }
-    }
-    color: ${(props) => props.color};
-    width: ${(props) => props.width || '25%'};
-    text-align: ${(props) => props.align};
-    font-weight: ${(props) => props.weight};
-    white-space: ${(props) => props.wrapText ? 'nowrap' : 'inherit'};
-    overflow: ${(props) => props.wrapText ? 'hidden' : 'inherit'};
-    text-overflow: ${(props) => props.wrapText ? 'ellipsis' : 'inherit'};
+  display: flex;
+  color: ${(props) => props.color};
+  width: ${(props) => props.width || '25%'};
+  justify-content: ${(props) => props.align};
+  font-weight: ${(props) => props.weight};
+  white-space: ${(props) => props.wrapText ? 'nowrap' : 'inherit'};
+  overflow: ${(props) => props.wrapText ? 'hidden' : 'inherit'};
+  text-overflow: ${(props) => props.wrapText ? 'ellipsis' : 'inherit'};
 `;
 
 const ProposalsPage = observer(() => {
@@ -134,7 +125,13 @@ const ProposalsPage = observer(() => {
     const [stateFilter, setStateFilter] = React.useState("All");
     const [titleFilter, setTitleFilter] = React.useState("");
       
-    const allProposals = daoStore.getAllProposals().sort(function(a, b) { return b.priority - a.priority; });
+    const allProposals = daoStore.getAllProposals().map((cacheProposal) => {
+      const {status, boostTime, finishTime} = daoStore.getProposalStatus(cacheProposal.id);
+      cacheProposal.status = status; 
+      cacheProposal.boostTime = boostTime; 
+      cacheProposal.finishTime = finishTime; 
+      return cacheProposal;
+    }).sort(function(a, b) { return b.finishTime - a.finishTime; });
     function onStateFilterChange(newValue) { setStateFilter(newValue.target.value) }
     function onTitleFilterChange(newValue) { setTitleFilter(newValue.target.value) }
     console.log("All Proposals", allProposals, allProposals.length, daoStore);
@@ -174,19 +171,19 @@ const ProposalsPage = observer(() => {
             flexDirection: "row",
             justifyContent: "space-between"
           }}>
-            {(configStore.getActiveChainName() != 'mainnet') 
-              ? <ActiveButton route="/new">+ New Proposal</ActiveButton>
-              : <div/>
+            {((configStore.getActiveChainName() == 'mainnet') || (configStore.getActiveChainName() == 'xdai'))
+              ?<div/>
+              : <ActiveButton route="/new">+ New Proposal</ActiveButton>
             }
           </div>
         </ProposalTableHeaderActions>
         <ProposalTableHeaderWrapper>
-            <TableHeader width="5%" align="left"> # </TableHeader>
-            <TableHeader width="30%" align="left"> Title </TableHeader>
-            <TableHeader width="15%" align="center"> Scheme </TableHeader>
-            <TableHeader width="15%" align="center"> Status </TableHeader>
-            <TableHeader width="17.5%" align="center"> Staked </TableHeader>
-            <TableHeader width="17.5%" align="center"> Votes  </TableHeader>
+          <TableHeader width="5%" align="left"> # </TableHeader>
+          <TableHeader width="30%" align="left"> Title </TableHeader>
+          <TableHeader width="15%" align="center"> Scheme </TableHeader>
+          <TableHeader width="15%" align="center"> Status </TableHeader>
+          <TableHeader width="17.5%" align="center"> Staked </TableHeader>
+          <TableHeader width="17.5%" align="center"> Votes  </TableHeader>
         </ProposalTableHeaderWrapper>
         { (allProposals.length === 0) ?
           <TableRowsWrapper>
@@ -200,20 +197,25 @@ const ProposalsPage = observer(() => {
                 && ((stateFilter == 'All') || (stateFilter != 'All' && proposal.status == stateFilter))
                 && (titleFilter.length == 0) || ((titleFilter.length > 0) && (proposal.title.indexOf(titleFilter) >= 0))
               ) {
-                const positiveStake = Number(library.utils.fromWei(proposal.positiveStakes.toString())).toFixed(2);
-                const negativeStake = Number(library.utils.fromWei(proposal.negativeStakes.toString())).toFixed(2);
-                const positiveVotesPercentage = proposal.positiveVotes.div( proposal.repAtCreation ).times("100").toNumber().toFixed(2);
-                const negativeVotesPercentage =  proposal.negativeVotes.div( proposal.repAtCreation ).times("100").toNumber().toFixed(2);
-                const timeToBoost = moment().to( moment.unix(proposal.boostTime.toNumber()) ).toString();
-                const timeToFinish = moment().to( moment.unix(proposal.finishTime.toNumber()) ).toString();
+                const positiveStake = normalizeBalance(proposal.positiveStakes, 18);
+                const negativeStake = normalizeBalance(proposal.negativeStakes, 18);
+                const positiveVotesPercentage = formatPercentage(
+                  proposal.positiveVotes.div(proposal.repAtCreation), 2
+                );
+                const negativeVotesPercentage =  formatPercentage(
+                  proposal.negativeVotes.div(proposal.repAtCreation), 2
+                );
+                const timeToBoost = timeToTimestamp(proposal.boostTime);
+                const timeToFinish = timeToTimestamp(proposal.finishTime);
+                
                 const votingMachineTokenName = 
-                (votingMachines.gen && (daoStore.getVotingMachineOfProposal(proposal.id) == votingMachines.gen.address))
+                (votingMachines.gen && daoStore.getVotingMachineOfProposal(proposal.id) == votingMachines.gen.address)
                 ? 'GEN' : 'DXD';
                 return (
                   <Link key={"proposal"+i} to={"/proposal/"+proposal.id} style={{textDecoration: "none"}}>
                     <TableRow>
-                      <TableCell width="5%" align="center">
-                        #{allProposals.length - i}
+                      <TableCell width="5%" align="left">
+                        {allProposals.length - i}
                       </TableCell>
                       <TableCell width="30%" align="left" weight='500' wrapText="true">
                         {proposal.title.length > 0 ? proposal.title : proposal.id}
@@ -222,19 +224,21 @@ const ProposalsPage = observer(() => {
                         {daoStore.getCache().schemes[proposal.scheme].name}
                       </TableCell>
                       <TableCell width="15%" align="center">
-                        {proposal.status} <br/>
-                        {(proposal.boostTime.toNumber() > moment().unix()) ? <small>Boost {timeToBoost} <br/></small> : <span></span>}
-                        {(proposal.finishTime.toNumber() > moment().unix()) ? <small>Finish {timeToFinish} </small> : <span></span>}
+                        <span style={{textAlign:"center"}}>
+                          {proposal.status} <br/>
+                          {(timeToBoost != "") ? <small>Boost {timeToBoost} <br/></small> : <span></span>}
+                          {(timeToFinish != "") ? <small>Finish {timeToFinish} </small> : <span></span>}
+                        </span>
                       </TableCell>
-                      <TableCell width="17.5%" align="center"> 
-                        <span style={{color: "green"}}>{positiveStake} {votingMachineTokenName} </span>
-                        -
-                        <span style={{color: "red"}}> {negativeStake} {votingMachineTokenName}</span>
+                      <TableCell width="17.5%" align="space-evenly"> 
+                        <span style={{color: "green", flex:"3", textAlign:"right"}}>{positiveStake.toString()} {votingMachineTokenName} </span>
+                        <span style={{flex:"1", textAlign:"center"}}>|</span>
+                        <span style={{color: "red", flex:"3", textAlign:"left"}}> {negativeStake.toString()} {votingMachineTokenName}</span>
                       </TableCell>
-                      <TableCell width="17.5%" align="center"> 
-                        <span style={{color: "green"}}>{positiveVotesPercentage} % </span>
-                        -
-                        <span style={{color: "red"}}> {negativeVotesPercentage} %</span>
+                      <TableCell width="17.5%" align="space-evenly"> 
+                        <span style={{color: "green", flex:"3", textAlign:"right"}}>{positiveVotesPercentage} </span>
+                        <span style={{flex:"1", textAlign:"center"}}>|</span>
+                        <span style={{color: "red", flex:"3", textAlign:"left"}}> {negativeVotesPercentage}</span>
                       </TableCell>
                     </TableRow>
                   </Link>);

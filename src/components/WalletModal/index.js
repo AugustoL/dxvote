@@ -8,7 +8,7 @@ import AccountDetails from '../AccountDetails';
 import PendingView from './PendingView';
 import Option from './Option';
 import { usePrevious } from 'utils/helperHooks';
-import { Link } from '../../theme';
+import Link from '../../components/common/Link';
 import { ReactComponent as Close } from '../../assets/images/x.svg';
 import { injected, SUPPORTED_WALLETS } from 'provider/connectors';
 import { useStores } from 'contexts/storesContext';
@@ -291,7 +291,7 @@ const WalletModal = observer(
                         <HeaderRow>{'Wrong Network'}</HeaderRow>
                         <ContentWrapper>
                             <h5>
-                                Please connect to Rinkeby ethereum network.
+                                Please connect to a valid ethereum network.
                             </h5>
                         </ContentWrapper>
                     </UpperSection>
